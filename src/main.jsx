@@ -1,22 +1,51 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import yaml from "js-yaml";
 
 import { ArrowUpRight, ArrowRight, Menu, X, Sparkles, Box, Share2, Palette, Quote, MoveUpRight } from "lucide-react";
 import "./styles.css";
 
-const portfolio = [
-  { title: "NOVA Coffee", category: "Branding", tag: "Identity", image: "/images/project-1.svg" },
-  { title: "AURA Skin", category: "Packaging", tag: "Packaging", image: "/images/project-2.svg" },
-  { title: "Melt Social", category: "Social Media", tag: "Campaign", image: "/images/project-3.svg" },
-  { title: "Mono House", category: "Branding", tag: "Identity", image: "/images/project-4.svg" }
-];
+const portfolioFiles = import.meta.glob("../content/portfolio/*.md", { eager: true, query: "?raw", import: "default" });
+const testimonialFiles = import.meta.glob("../content/testimonials/*.md", { eager: true, query: "?raw", import: "default" });
+const serviceFiles = import.meta.glob("../content/services/*.md", { eager: true, query: "?raw", import: "default" });
+const pageFiles = import.meta.glob("../content/pages/*.yml", { eager: true, query: "?raw", import: "default" });
+const settingsFiles = import.meta.glob("../content/settings.yml", { eager: true, query: "?raw", import: "default" });
 
-const testimonials = [
-  { quote: "Pixcel understood the personality we wanted before we could even articulate it. The identity feels premium, warm and unmistakably ours.", name: "Ananya Rao", role: "Founder, AURA Skin" },
-  { quote: "The new packaging gave our launch a completely different level of confidence. Customers notice it, photograph it and remember it.", name: "Rohan Mehta", role: "Marketing Lead, NOVA Coffee" },
-  { quote: "Our social presence finally feels like one brand instead of a collection of posts. Pixcel built a system our team can actually use.", name: "Maya Joseph", role: "Co-founder, Melt" },
-  { quote: "Fast, thoughtful and obsessive about the details. The final work looked better than the moodboard we started with.", name: "Karthik Sen", role: "Founder, Mono House" }
-];
+function parseFrontmatter(raw) {
+  const match = raw.match(/^---\\s*([\\s\\S]*?)\\s*---\\s*([\\s\\S]*)$/);
+  if (!match) return { data: {}, body: raw.trim() };
+  return { data: yaml.load(match[1]) || {}, body: match[2].trim() };
+}
+
+function loadCollection(files) {
+  return Object.values(files).map(parseFrontmatter).map(x => x.data);
+}
+
+const portfolio = loadCollection(portfolioFiles).map((p, i) => ({
+  title: p.title || `Project ${i + 1}`,
+  category: p.category || "Branding",
+  tag: p.tag || "Project",
+  image: p.image || `/images/project-${(i % 4) + 1}.svg`
+}));
+
+const testimonials = loadCollection(testimonialFiles).map(t => ({
+  quote: t.quote || "",
+  name: t.name || "Client",
+  role: t.role || ""
+}));
+
+const services = loadCollection(serviceFiles).filter(s => s.enabled !== false).map((s, i) => ({
+  number: s.number || String(i + 1).padStart(2, "0"),
+  title: s.title || "Service",
+  description: s.description || "",
+  icon: s.icon || "branding"
+}));
+
+const home = yaml.load(pageFiles["../content/pages/home.yml"] || "") || {};
+const about = yaml.load(pageFiles["../content/pages/about.yml"] || "") || {};
+const settings = yaml.load(settingsFiles["../content/settings.yml"] || "") || {};
+
+const iconMap = { branding: Palette, packaging: Box, social: Share2, "art-direction": Sparkles, campaign: ArrowUpRight, presentation: MoveUpRight };
 
 function useMouseGlow() {
   const ref = useRef(null);
@@ -95,7 +124,7 @@ function Header() {
         <NavLink to="/" end onClick={() => setOpen(false)}>Home</NavLink>
         <NavLink to="/work" onClick={() => setOpen(false)}>Work</NavLink>
         <NavLink to="/about" onClick={() => setOpen(false)}>About</NavLink>
-        <a className="nav-cta" href="mailto:hello@pixcelstudio.com" onClick={() => setOpen(false)}>Start a project <ArrowUpRight size={16}/></a>
+        <a className="nav-cta" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`} onClick={() => setOpen(false)}>Start a project <ArrowUpRight size={16}/></a>
       </nav>
     </header>
   );
@@ -105,16 +134,16 @@ function Footer() {
   return (
     <footer className="footer">
       <div>
-        <div className="footer-brand">PIXCEL<span>STUDIO</span></div>
-        <p>Brand worlds, packaging and social systems<br/>for ambitious ideas.</p>
+        <div className="footer-brand">{settings.studio_name || "PIXCEL STUDIO"}</div>
+        <p>{settings.footer_line || "Brand worlds, packaging and social systems for ambitious ideas."}</p>
       </div>
       <div className="footer-links">
-        <a href="https://www.instagram.com/" target="_blank" rel="noreferrer">Instagram</a>
-        <a href="https://www.behance.net/" target="_blank" rel="noreferrer">Behance</a>
-        <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn</a>
-        <a href="mailto:hello@pixcelstudio.com">Email</a>
+        <a href={settings.instagram || "https://www.instagram.com/"} target="_blank" rel="noreferrer">Instagram</a>
+        <a href={settings.behance || "https://www.behance.net/"} target="_blank" rel="noreferrer">Behance</a>
+        <a href={settings.linkedin || "https://www.linkedin.com/"} target="_blank" rel="noreferrer">LinkedIn</a>
+        <a href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Email</a>
       </div>
-      <div className="footer-bottom"><span>© {new Date().getFullYear()} Pixcel Studio</span><span>Made with intention.</span></div>
+      <div className="footer-bottom"><span>© {new Date().getFullYear()} {settings.studio_name || "Pixcel Studio"}</span><span>Made with intention.</span></div>
     </footer>
   );
 }
@@ -130,12 +159,12 @@ function Home() {
       <section className="hero">
         <div className="aurora a1"/><div className="aurora a2"/><div className="aurora a3"/>
         <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={14}/> Independent creative studio · India</div>
-          <h1>Design that<br/><em>moves</em> people.</h1>
-          <p className="hero-sub">We build bold identities, tactile packaging and scroll-stopping social worlds for brands ready to be remembered.</p>
+          <div className="eyebrow"><Sparkles size={14}/> {home.hero_eyebrow || "Independent creative studio · India"}</div>
+          <h1>{(home.hero_title || "Design that moves people.").split(" ").slice(0,-2).join(" ")}<br/><em>{(home.hero_title || "Design that moves people.").split(" ").slice(-2).join(" ")}</em></h1>
+          <p className="hero-sub">{home.hero_description || "We build bold identities, tactile packaging and scroll-stopping social worlds for brands ready to be remembered."}</p>
           <div className="hero-actions">
             <Link className="btn primary" to="/work">Explore our work <ArrowRight size={17}/></Link>
-            <a className="btn ghost" href="mailto:hello@pixcelstudio.com">Tell us your idea</a>
+            <a className="btn ghost" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Tell us your idea</a>
           </div>
         </div>
         <div className="hero-orbit">
@@ -150,19 +179,13 @@ function Home() {
       <section className="section services">
         <div className="section-head"><div><span className="kicker">01 / WHAT WE DO</span><h2>Small studio.<br/><i>Big visual energy.</i></h2></div><p>We combine strategy, design and motion-minded thinking to make brands feel unmistakably themselves.</p></div>
         <div className="service-grid service-grid-wide">
-          {[
-            [Palette,"01","Branding","Identity systems, logos, art direction, typography and guidelines that give your brand a distinct voice."],
-            [Box,"02","Packaging","Packaging concepts, labels and shelf-ready artwork designed to make products impossible to ignore."],
-            [Share2,"03","Social Media Creatives","Campaign systems, posts, stories and launch kits built for consistent, high-impact content."],
-            [Sparkles,"04","Art Direction","A visual point of view for campaigns, shoots and brand worlds — from mood to final frame."],
-            [ArrowUpRight,"05","Campaign Design","Big ideas translated into cohesive launch campaigns across digital, print and social."],
-            [MoveUpRight,"06","Presentation & Pitch Decks","Beautiful, persuasive decks that make your story easier to understand and harder to forget."]
-          ].map(([Icon,num,title,desc]) =>
-            <GlassCard className="service-card" key={title}>
-              <div className="icon-wrap"><Icon/></div><span>{num}</span><h3>{title}</h3><p>{desc}</p>
-              <a href="mailto:hello@pixcelstudio.com">Explore service <ArrowUpRight size={16}/></a>
-            </GlassCard>
-          )}
+          {services.map((s) => {
+            const Icon = iconMap[s.icon] || Sparkles;
+            return <GlassCard className="service-card" key={`${s.number}-${s.title}`}>
+              <div className="icon-wrap"><Icon/></div><span>{s.number}</span><h3>{s.title}</h3><p>{s.description}</p>
+              <a href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Explore service <ArrowUpRight size={16}/></a>
+            </GlassCard>;
+          })}
         </div>
       </section>
 
@@ -174,7 +197,7 @@ function Home() {
       </section>
 
       <section className="statement">
-        <div className="statement-inner"><span className="kicker">A POINT OF VIEW</span><h2>Good design gets attention.<br/><em>Great design gets remembered.</em></h2></div>
+        <div className="statement-inner"><span className="kicker">A POINT OF VIEW</span><h2>{(home.statement || "Good design gets attention. Great design gets remembered.").split(". ")[0]}.<br/><em>{(home.statement || "Good design gets attention. Great design gets remembered.").split(". ").slice(1).join(". ")}</em></h2></div>
       </section>
 
       <section className="section testimonials">
@@ -182,7 +205,7 @@ function Home() {
         <div className="testimonial-grid">{testimonials.map(t=><GlassCard className="quote-card" key={t.name}><Quote size={25}/><p>“{t.quote}”</p><strong>{t.name}</strong><small>{t.role}</small></GlassCard>)}</div>
       </section>
 
-      <section className="cta"><div className="cta-glow"/><span className="kicker">HAVE A PROJECT?</span><h2>Let's make<br/><em>something impossible to ignore.</em></h2><a className="btn primary" href="mailto:hello@pixcelstudio.com">hello@pixcelstudio.com <ArrowUpRight size={17}/></a></section>
+      <section className="cta"><div className="cta-glow"/><span className="kicker">HAVE A PROJECT?</span><h2>{(home.cta_title || "Let's make something impossible to ignore.").split(" ").slice(0,2).join(" ")}<br/><em>{(home.cta_title || "Let's make something impossible to ignore.").split(" ").slice(2).join(" ")}</em></h2><a className="btn primary" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>{settings.email || "hello@pixcelstudio.com"} <ArrowUpRight size={17}/></a></section>
     </main>
   );
 }
@@ -196,9 +219,9 @@ function Work() {
 }
 
 function About() {
-  return <main className="inner-page"><section className="page-hero"><span className="kicker">ABOUT PIXCEL</span><h1>Built for brands<br/><em>with something to say.</em></h1><p>Pixcel Studio is an independent graphic design practice focused on creating clear, expressive visual identities with a little more character.</p></section>
-    <section className="section about-layout"><div className="about-art"><div className="about-photo"><span>PX</span></div></div><div className="about-copy"><span className="kicker">THE STUDIO</span><h2>Strategy in one hand.<br/><i>Play in the other.</i></h2><p>We believe the strongest visual identities sit at the intersection of clarity and surprise. We keep the process collaborative, the systems practical and the final work full of personality.</p><p>Our work spans identity, packaging and social content for founders and teams who want their brand to look as ambitious as the idea behind it.</p><a className="text-link" href="mailto:hello@pixcelstudio.com">Start a conversation <ArrowRight size={17}/></a></div></section>
-    <section className="founder"><div><span className="kicker">THE FOUNDER</span><h2>Israyelu<br/><em>Kodem.</em></h2><p>Creative direction, brand systems and a belief that design should feel as good as it looks.</p></div><div className="founder-card glass"><div className="portrait">IK</div><div><strong>Israyelu Kodem</strong><small>Founder & Creative Director</small></div></div></section>
+  return <main className="inner-page"><section className="page-hero"><span className="kicker">{about.eyebrow || "ABOUT PIXCEL"}</span><h1>{about.title || "Built for brands with something to say."}</h1><p>{about.intro || "Pixcel Studio is an independent graphic design practice focused on creating clear, expressive visual identities with a little more character."}</p></section>
+    <section className="section about-layout"><div className="about-art"><div className="about-photo"><span>PX</span></div></div><div className="about-copy"><span className="kicker">THE STUDIO</span><h2>{about.studio_heading || "Strategy in one hand. Play in the other."}</h2><p>{about.paragraph_1 || "We believe the strongest visual identities sit at the intersection of clarity and surprise."}</p><p>{about.paragraph_2 || "Our work spans identity, packaging and social content for founders and teams."}</p><a className="text-link" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Start a conversation <ArrowRight size={17}/></a></div></section>
+    <section className="founder"><div><span className="kicker">THE FOUNDER</span><h2>{about.founder_name || "Israyelu Kodem."}</h2><p>{about.founder_bio || "Creative direction, brand systems and a belief that design should feel as good as it looks."}</p></div><div className="founder-card glass"><div className="portrait">IK</div><div><strong>{about.founder_name || "Israyelu Kodem"}</strong><small>{about.founder_role || "Founder & Creative Director"}</small></div></div></section>
   </main>;
 }
 

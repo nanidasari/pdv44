@@ -1,31 +1,41 @@
-# Pixcel Studio
+# Pixcel Studio — Dynamic Decap CMS
 
-Liquid-glass animated React/Vite website for Pixcel Studio.
+The site now reads content from the files managed by Decap CMS at build time.
 
-## Refresh-safe navigation
+### CMS-controlled content
+- Portfolio: title, category, tag, image
+- Testimonials
+- Services: name, number, description, icon, enabled
+- Home page: hero, statement, CTA
+- About page: intro, studio copy, founder
+- Global settings: studio name, email, Instagram, Behance, LinkedIn, footer and SEO
 
-The website uses hash navigation:
-- `/#/`
-- `/#/work`
-- `/#/about`
+### Important deployment setup
 
-This means clicking Work/About and then pressing browser refresh will still load the correct page. It does not depend on server-side routing.
+For CMS edits to appear on the public website:
 
-## Deploy
+1. Put this project in the same GitHub repository configured in Decap CMS.
+2. Connect that GitHub repository to Netlify.
+3. Netlify should use Build command `npm run build` and Publish directory `dist`.
+4. Enable Netlify Identity / Git Gateway for the Decap CMS login.
+5. Edit content in `/admin/` and click **Publish**.
+6. Decap commits the changed content to GitHub.
+7. Netlify detects the commit and automatically rebuilds the site.
+8. After the build finishes, the public site shows the new content.
 
-Netlify:
-- Build command: `npm run build`
-- Publish directory: `dist`
+If the site was deployed only by dragging a `dist` folder into Netlify, CMS changes cannot rebuild that deployment. Connect the GitHub repository instead.
 
-The included `netlify.toml` already contains these settings.
-
-## Local
+### Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Decap CMS
+### Production build
 
-Open `/admin/` after deployment. CMS files are included in `public/admin/` and `content/`.
+```bash
+npm run build
+```
+
+Navigation remains refresh-safe using `/#/`, `/#/work`, and `/#/about`.
