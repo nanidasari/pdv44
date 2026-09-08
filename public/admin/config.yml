@@ -1,0 +1,91 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "public/uploads"
+public_folder: "/uploads"
+
+site_url: /
+display_url: /
+logo_url: /favicon.svg
+
+collections:
+  - name: "portfolio"
+    label: "Portfolio"
+    folder: "content/portfolio"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Category", name: "category", widget: "select", options: ["Branding", "Packaging", "Social Media", "Art Direction", "Campaign Design", "Presentation & Pitch Decks"] }
+      - { label: "Tag", name: "tag", widget: "string", required: false }
+      - { label: "Cover Image", name: "image", widget: "image" }
+      - { label: "Description", name: "body", widget: "markdown", required: false }
+
+  - name: "testimonials"
+    label: "Testimonials"
+    folder: "content/testimonials"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - { label: "Client Name", name: "name", widget: "string" }
+      - { label: "Role / Company", name: "role", widget: "string" }
+      - { label: "Quote", name: "quote", widget: "text" }
+      - { label: "Client Photo", name: "image", widget: "image", required: false }
+
+  - name: "services"
+    label: "Services"
+    folder: "content/services"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - { label: "Service Name", name: "title", widget: "string" }
+      - { label: "Number", name: "number", widget: "string" }
+      - { label: "Description", name: "description", widget: "text" }
+      - { label: "Icon", name: "icon", widget: "select", options: ["branding", "packaging", "social", "art-direction", "campaign", "presentation"] }
+      - { label: "Enabled", name: "enabled", widget: "boolean", default: true }
+
+  - name: "pages"
+    label: "Pages"
+    files:
+      - file: "content/pages/home.yml"
+        label: "Home Page"
+        name: "home"
+        fields:
+          - { label: "Hero Eyebrow", name: "hero_eyebrow", widget: "string" }
+          - { label: "Hero Title", name: "hero_title", widget: "string" }
+          - { label: "Hero Description", name: "hero_description", widget: "text" }
+          - { label: "Statement", name: "statement", widget: "text" }
+          - { label: "CTA Title", name: "cta_title", widget: "string" }
+          - { label: "CTA Email", name: "cta_email", widget: "string" }
+      - file: "content/pages/about.yml"
+        label: "About Page"
+        name: "about"
+        fields:
+          - { label: "Eyebrow", name: "eyebrow", widget: "string" }
+          - { label: "Title", name: "title", widget: "string" }
+          - { label: "Intro", name: "intro", widget: "text" }
+          - { label: "Studio Heading", name: "studio_heading", widget: "string" }
+          - { label: "Studio Paragraph 1", name: "paragraph_1", widget: "text" }
+          - { label: "Studio Paragraph 2", name: "paragraph_2", widget: "text" }
+          - { label: "Founder Name", name: "founder_name", widget: "string" }
+          - { label: "Founder Role", name: "founder_role", widget: "string" }
+          - { label: "Founder Bio", name: "founder_bio", widget: "text" }
+          - { label: "Founder Photo", name: "founder_photo", widget: "image", required: false }
+
+  - name: "settings"
+    label: "Global Settings"
+    files:
+      - file: "content/settings.yml"
+        label: "Global Settings"
+        name: "global"
+        fields:
+          - { label: "Studio Name", name: "studio_name", widget: "string" }
+          - { label: "Email", name: "email", widget: "string" }
+          - { label: "Instagram", name: "instagram", widget: "string" }
+          - { label: "Behance", name: "behance", widget: "string" }
+          - { label: "LinkedIn", name: "linkedin", widget: "string" }
+          - { label: "Footer Line", name: "footer_line", widget: "text" }
+          - { label: "SEO Title", name: "seo_title", widget: "string" }
+          - { label: "SEO Description", name: "seo_description", widget: "text" }
+          - { label: "Favicon", name: "favicon", widget: "image", required: false }
