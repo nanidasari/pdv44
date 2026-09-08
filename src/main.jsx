@@ -12,7 +12,7 @@ const pageFiles = import.meta.glob("../content/pages/*.yml", { eager: true, quer
 const settingsFiles = import.meta.glob("../content/settings.yml", { eager: true, query: "?raw", import: "default" });
 
 function parseFrontmatter(raw) {
-  const match = raw.match(/^---\\s*([\\s\\S]*?)\\s*---\\s*([\\s\\S]*)$/);
+  const match = raw.match(/^---\s*([\s\S]*?)\s*---\s*([\s\S]*)$/);
   if (!match) return { data: {}, body: raw.trim() };
   return { data: yaml.load(match[1]) || {}, body: match[2].trim() };
 }
@@ -31,7 +31,8 @@ const portfolio = loadCollection(portfolioFiles).map((p, i) => ({
 const testimonials = loadCollection(testimonialFiles).map(t => ({
   quote: t.quote || "",
   name: t.name || "Client",
-  role: t.role || ""
+  role: t.role || "",
+  image: t.image || ""
 }));
 
 const services = loadCollection(serviceFiles).filter(s => s.enabled !== false).map((s, i) => ({
@@ -44,6 +45,11 @@ const services = loadCollection(serviceFiles).filter(s => s.enabled !== false).m
 const home = yaml.load(pageFiles["../content/pages/home.yml"] || "") || {};
 const about = yaml.load(pageFiles["../content/pages/about.yml"] || "") || {};
 const settings = yaml.load(settingsFiles["../content/settings.yml"] || "") || {};
+
+const contentData = { portfolio, testimonials, services, home, about, settings };
+function useContent(cms) {
+  return cms || contentData;
+}
 
 const iconMap = { branding: Palette, packaging: Box, social: Share2, "art-direction": Sparkles, campaign: ArrowUpRight, presentation: MoveUpRight };
 
@@ -67,88 +73,6 @@ async function loadText(url) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Could not load ${url}`);
   return res.text();
-}
-
-function parseSimpleYaml(text) {
-  const out = {};
-  const lines = text.replace(/\r/g, "").split("\n");
-  let currentList = null;
-  let currentObj = null;
-  for (const raw of lines) {
-    const line = raw.replace(/\t/g, "    ");
-    if (!line.trim() || line.trim().startsWith("#")) continue;
-    const mList = line.match(/^([A-Za-z0-9_-]+):\s*$/);
-    if (mList) {
-      out[mList[1]] = {};
-      currentList = null; currentObj = null;
-      continue;
-    }
-    const mItem = line.match(/^\s*-\s+([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (mItem) {
-      const key = mItem[1], value = cleanYamlValue(mItem[2]);
-      if (!Array.isArray(out.items)) out.items = [];
-      currentObj = {[key]: value}; out.items.push(currentObj); currentList = out.items;
-      continue;
-    }
-    const m = line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (m) {
-      const key = m[1], value = cleanYamlValue(m[2]);
-      if (currentObj && /^\s{2,}/.test(line)) currentObj[key] = value;
-      else out[key] = value;
-    }
-  }
-  return out;
-}
-function cleanYamlValue(v) {
-  v = v.trim();
-  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) return v.slice(1,-1);
-  if (v === "true") return true;
-  if (v === "false") return false;
-  if (v === "null") return null;
-  return v;
-}
-function parseFrontMatter(text) {
-  const m = text.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---\s*[\r\n]*/);
-  if (!m) return {};
-  return parseSimpleYaml(m[1]);
-}
-async function loadCMSContent() {
-  const defaults = {
-    settings: {},
-    home: {},
-    about: {},
-    services: [],
-    testimonials: [],
-    portfolio: []
-  };
-  const read = async (url, kind="yaml") => {
-    try {
-      const text = await loadText(url);
-      return kind === "md" ? parseFrontMatter(text) : parseSimpleYaml(text);
-    } catch { return null; }
-  };
-  const settings = await read("./content/settings.yml");
-  const home = await read("./content/pages/home.yml");
-  const about = await read("./content/pages/about.yml");
-  const listFiles = async (folder) => {
-    try {
-      const r = await fetch(`./content/${folder}/manifest.json`, {cache:"no-store"});
-      if (!r.ok) return [];
-      return await r.json();
-    } catch { return []; }
-  };
-  const readMany = async (folder, kind="md") => {
-    const files = await listFiles(folder);
-    return (await Promise.all(files.map(f => read(`./content/${folder}/${f}`, kind)))).filter(Boolean);
-  };
-  return {
-    settings: settings || {},
-    home: home || {},
-    about: about || {},
-    services: await readMany("services"),
-    testimonials: await readMany("testimonials"),
-    portfolio: await readMany("portfolio", "md")
-  };
 }
 
 function useHashRoute() {
@@ -284,7 +208,8 @@ function useInteractiveTilt(selector) {
   }, [selector]);
 }
 
-function Header() {
+function Header({ cms } = {}) {
+  const { settings: siteSettings } = useContent(cms);
   const [open, setOpen] = useState(false);
   return (
     <header className="nav">
@@ -297,26 +222,27 @@ function Header() {
         <NavLink to="/" end onClick={() => setOpen(false)}>Home</NavLink>
         <NavLink to="/work" onClick={() => setOpen(false)}>Work</NavLink>
         <NavLink to="/about" onClick={() => setOpen(false)}>About</NavLink>
-        <a className="nav-cta" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`} onClick={() => setOpen(false)}>Start a project <ArrowUpRight size={16}/></a>
+        <a className="nav-cta" href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`} onClick={() => setOpen(false)}>Start a project <ArrowUpRight size={16}/></a>
       </nav>
     </header>
   );
 }
 
-function Footer() {
+function Footer({ cms } = {}) {
+  const { settings: siteSettings } = useContent(cms);
   return (
     <footer className="footer">
       <div>
-        <div className="footer-brand">{settings.studio_name || "PIXCEL STUDIO"}</div>
-        <p>{settings.footer_line || "Brand worlds, packaging and social systems for ambitious ideas."}</p>
+        <div className="footer-brand">{siteSettings.studio_name || "PIXCEL STUDIO"}</div>
+        <p>{siteSettings.footer_line || "Brand worlds, packaging and social systems for ambitious ideas."}</p>
       </div>
       <div className="footer-links">
-        <a href={settings.instagram || "https://www.instagram.com/"} target="_blank" rel="noreferrer">Instagram</a>
-        <a href={settings.behance || "https://www.behance.net/"} target="_blank" rel="noreferrer">Behance</a>
-        <a href={settings.linkedin || "https://www.linkedin.com/"} target="_blank" rel="noreferrer">LinkedIn</a>
-        <a href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Email</a>
+        <a href={siteSettings.instagram || "https://www.instagram.com/"} target="_blank" rel="noreferrer">Instagram</a>
+        <a href={siteSettings.behance || "https://www.behance.net/"} target="_blank" rel="noreferrer">Behance</a>
+        <a href={siteSettings.linkedin || "https://www.linkedin.com/"} target="_blank" rel="noreferrer">LinkedIn</a>
+        <a href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`}>Email</a>
       </div>
-      <div className="footer-bottom"><span>© {new Date().getFullYear()} {settings.studio_name || "Pixcel Studio"}</span><span>Made with intention.</span></div>
+      <div className="footer-bottom"><span>© {new Date().getFullYear()} {siteSettings.studio_name || "Pixcel Studio"}</span><span>Made with intention.</span></div>
     </footer>
   );
 }
@@ -326,6 +252,7 @@ function GlassCard({ children, className="" }) {
 }
 
 function Home({ cms } = {}) {
+  const { home: pageHome, settings: siteSettings, services: siteServices, portfolio: sitePortfolio, testimonials: siteTestimonials } = useContent(cms);
   const glow = useMouseGlow();
   useInteractiveTilt(".service-card, .quote-card");
   return (
@@ -333,12 +260,12 @@ function Home({ cms } = {}) {
       <section className="hero">
         <div className="aurora a1"/><div className="aurora a2"/><div className="aurora a3"/>
         <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={14}/> {home.hero_eyebrow || "Independent creative studio · India"}</div>
-          <h1>{(home.hero_title || "Design that moves people.").split(" ").slice(0,-2).join(" ")}<br/><em>{(home.hero_title || "Design that moves people.").split(" ").slice(-2).join(" ")}</em></h1>
-          <p className="hero-sub">{home.hero_description || "We build bold identities, tactile packaging and scroll-stopping social worlds for brands ready to be remembered."}</p>
+          <div className="eyebrow"><Sparkles size={14}/> {pageHome.hero_eyebrow || "Independent creative studio · India"}</div>
+          <h1>{(pageHome.hero_title || "Design that moves people.").split(" ").slice(0,-2).join(" ")}<br/><em>{(pageHome.hero_title || "Design that moves people.").split(" ").slice(-2).join(" ")}</em></h1>
+          <p className="hero-sub">{pageHome.hero_description || "We build bold identities, tactile packaging and scroll-stopping social worlds for brands ready to be remembered."}</p>
           <div className="hero-actions">
             <Link className="btn primary" to="/work">Explore our work <ArrowRight size={17}/></Link>
-            <a className="btn ghost" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Tell us your idea</a>
+            <a className="btn ghost" href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`}>Tell us your idea</a>
           </div>
         </div>
         <div className="hero-orbit">
@@ -353,11 +280,11 @@ function Home({ cms } = {}) {
       <section className="section services">
         <div className="section-head"><div><span className="kicker">01 / WHAT WE DO</span><h2>Small studio.<br/><i>Big visual energy.</i></h2></div><p>We combine strategy, design and motion-minded thinking to make brands feel unmistakably themselves.</p></div>
         <div className="service-grid service-grid-wide">
-          {services.map((s) => {
+          {siteServices.map((s) => {
             const Icon = iconMap[s.icon] || Sparkles;
             return <GlassCard className="service-card" key={`${s.number}-${s.title}`}>
               <div className="icon-wrap"><Icon/></div><span>{s.number}</span><h3>{s.title}</h3><p>{s.description}</p>
-              <a href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Explore service <ArrowUpRight size={16}/></a>
+              <a href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`}>Explore service <ArrowUpRight size={16}/></a>
             </GlassCard>;
           })}
         </div>
@@ -366,47 +293,41 @@ function Home({ cms } = {}) {
       <section className="section work-preview">
         <div className="section-head"><div><span className="kicker">02 / SELECTED WORK</span><h2>Made to be<br/><i>noticed.</i></h2></div><Link className="text-link" to="/work">View all work <ArrowRight size={17}/></Link></div>
         <div className="work-grid">
-          {portfolio.slice(0,3).map((p,i)=><Link to="/work" className={`project p${i}`} key={p.title}><img src={p.image} alt={p.title}/><div className="project-meta"><div><span>{p.category}</span><h3>{p.title}</h3></div><MoveUpRight/></div></Link>)}
+          {sitePortfolio.slice(0,3).map((p,i)=><Link to="/work" className={`project p${i}`} key={p.title}><img src={p.image} alt={p.title}/><div className="project-meta"><div><span>{p.category}</span><h3>{p.title}</h3></div><MoveUpRight/></div></Link>)}
         </div>
       </section>
 
       <section className="statement">
-        <div className="statement-inner"><span className="kicker">A POINT OF VIEW</span><h2>{(home.statement || "Good design gets attention. Great design gets remembered.").split(". ")[0]}.<br/><em>{(home.statement || "Good design gets attention. Great design gets remembered.").split(". ").slice(1).join(". ")}</em></h2></div>
+        <div className="statement-inner"><span className="kicker">A POINT OF VIEW</span><h2>{(pageHome.statement || "Good design gets attention. Great design gets remembered.").split(". ")[0]}.<br/><em>{(pageHome.statement || "Good design gets attention. Great design gets remembered.").split(". ").slice(1).join(". ")}</em></h2></div>
       </section>
 
       <section className="section testimonials">
         <div className="section-head"><div><span className="kicker">03 / KIND WORDS</span><h2>People we’ve<br/><i>worked with.</i></h2></div></div>
-        <div className="testimonial-grid">{testimonials.map(t=><GlassCard className="quote-card" key={t.name}><Quote size={25}/><p>“{t.quote}”</p><strong>{t.name}</strong><small>{t.role}</small></GlassCard>)}</div>
+        <div className="testimonial-grid">{siteTestimonials.map((t, i)=><GlassCard className="quote-card" key={`${t.name}-${i}`}><Quote size={25}/>{t.image && <img className="testimonial-avatar" src={t.image} alt={t.name}/>}<p>“{t.quote}”</p><strong>{t.name}</strong><small>{t.role}</small></GlassCard>)}</div>
       </section>
 
-      <section className="cta"><div className="cta-glow"/><span className="kicker">HAVE A PROJECT?</span><h2>{(home.cta_title || "Let's make something impossible to ignore.").split(" ").slice(0,2).join(" ")}<br/><em>{(home.cta_title || "Let's make something impossible to ignore.").split(" ").slice(2).join(" ")}</em></h2><a className="btn primary" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>{settings.email || "hello@pixcelstudio.com"} <ArrowUpRight size={17}/></a></section>
+      <section className="cta"><div className="cta-glow"/><span className="kicker">HAVE A PROJECT?</span><h2>{(pageHome.cta_title || "Let's make something impossible to ignore.").split(" ").slice(0,2).join(" ")}<br/><em>{(pageHome.cta_title || "Let's make something impossible to ignore.").split(" ").slice(2).join(" ")}</em></h2><a className="btn primary" href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`}>{siteSettings.email || "hello@pixcelstudio.com"} <ArrowUpRight size={17}/></a></section>
     </main>
   );
 }
 
 function Work({ cms } = {}) {
+  const { portfolio: sitePortfolio } = useContent(cms);
   useInteractiveTilt(".portfolio-item");
   const [filter, setFilter] = useState("All");
-  const filters = ["All","Branding","Packaging","Social Media"];
-  const list = filter === "All" ? portfolio : portfolio.filter(p => p.category === filter);
+  const dynamicFilters = ["All", ...Array.from(new Set(sitePortfolio.map(p => p.category).filter(Boolean)))];
+  const filters = dynamicFilters;
+  const list = filter === "All" ? sitePortfolio : sitePortfolio.filter(p => p.category === filter);
   return <main className="inner-page"><section className="page-hero"><span className="kicker">SELECTED WORK</span><h1>Ideas with<br/><em>afterglow.</em></h1><p>A living portfolio — update images, titles and categories from Decap CMS without touching the React code.</p></section>
     <section className="section portfolio-section"><div className="filters">{filters.map(f=><button className={filter===f?"active":""} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div><div className="portfolio-grid">{list.map(p=><article className="portfolio-item" key={p.title}><img src={p.image} alt={p.title}/><div><span>{p.category}</span><h3>{p.title}</h3><small>{p.tag}</small></div></article>)}</div></section></main>;
 }
 
 function About({ cms } = {}) {
-  return <main className="inner-page"><section className="page-hero"><span className="kicker">{about.eyebrow || "ABOUT PIXCEL"}</span><h1>{about.title || "Built for brands with something to say."}</h1><p>{about.intro || "Pixcel Studio is an independent graphic design practice focused on creating clear, expressive visual identities with a little more character."}</p></section>
-    <section className="section about-layout"><div className="about-art"><div className="about-photo">{about.founder_photo ? <img src={about.founder_photo} alt={about.founder_name || "Pixcel Studio founder"} /> : <span>PX</span>}</div></div><div className="about-copy"><span className="kicker">THE STUDIO</span><h2>{about.studio_heading || "Strategy in one hand. Play in the other."}</h2><p>{about.paragraph_1 || "We believe the strongest visual identities sit at the intersection of clarity and surprise."}</p><p>{about.paragraph_2 || "Our work spans identity, packaging and social content for founders and teams."}</p><a className="text-link" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Start a conversation <ArrowRight size={17}/></a></div></section>
-    <section className="founder"><div><span className="kicker">THE FOUNDER</span><h2>{about.founder_name || "Israyelu Kodem."}</h2><p>{about.founder_bio || "Creative direction, brand systems and a belief that design should feel as good as it looks."}</p></div><div className="founder-card glass"><div className="portrait">{about.founder_photo ? <img src={about.founder_photo} alt={about.founder_name || "Founder"} /> : "IK"}</div><div><strong>{about.founder_name || "Israyelu Kodem"}</strong><small>{about.founder_role || "Founder & Creative Director"}</small></div></div></section>
+  const { about: pageAbout, settings: siteSettings } = useContent(cms);
+  return <main className="inner-page"><section className="page-hero"><span className="kicker">{pageAbout.eyebrow || "ABOUT PIXCEL"}</span><h1>{pageAbout.title || "Built for brands with something to say."}</h1><p>{pageAbout.intro || "Pixcel Studio is an independent graphic design practice focused on creating clear, expressive visual identities with a little more character."}</p></section>
+    <section className="section about-layout"><div className="about-art"><div className="about-photo">{pageAbout.founder_photo ? <img src={pageAbout.founder_photo} alt={pageAbout.founder_name || "Pixcel Studio founder"} /> : <span>PX</span>}</div></div><div className="about-copy"><span className="kicker">THE STUDIO</span><h2>{pageAbout.studio_heading || "Strategy in one hand. Play in the other."}</h2><p>{pageAbout.paragraph_1 || "We believe the strongest visual identities sit at the intersection of clarity and surprise."}</p><p>{pageAbout.paragraph_2 || "Our work spans identity, packaging and social content for founders and teams."}</p><a className="text-link" href={`mailto:${siteSettings.email || "hello@pixcelstudio.com"}`}>Start a conversation <ArrowRight size={17}/></a></div></section>
+    <section className="founder"><div><span className="kicker">THE FOUNDER</span><h2>{pageAbout.founder_name || "Israyelu Kodem."}</h2><p>{pageAbout.founder_bio || "Creative direction, brand systems and a belief that design should feel as good as it looks."}</p></div><div className="founder-card glass"><div className="portrait">{pageAbout.founder_photo ? <img src={pageAbout.founder_photo} alt={pageAbout.founder_name || "Founder"} /> : "IK"}</div><div><strong>{pageAbout.founder_name || "Israyelu Kodem"}</strong><small>{pageAbout.founder_role || "Founder & Creative Director"}</small></div></div></section>
   </main>;
-}
-
-function CMSApp() {
-  const [cms, setCms] = useState(null);
-  useEffect(() => {
-    loadCMSContent().then(setCms);
-  }, []);
-  if (!cms) return <App />;
-  return <App cms={cms} />;
 }
 
 function App({ cms = null }) {
@@ -416,7 +337,7 @@ function App({ cms = null }) {
   if (route === "/work") page = <Work cms={cms}/>;
   else if (route === "/about") page = <About cms={cms}/>;
 
-  return <><CustomCursor/><Header/>{page}<Footer/></>;
+  return <><CustomCursor/><Header cms={cms}/>{page}<Footer cms={cms}/></>;
 }
 
-createRoot(document.getElementById("root")).render(<CMSApp/>);
+createRoot(document.getElementById("root")).render(<App/>);
