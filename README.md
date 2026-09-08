@@ -1,41 +1,23 @@
-# Pixcel Studio — Dynamic Decap CMS
+# Pixcel Studio — Fully CMS-Driven
 
-The site now reads content from the files managed by Decap CMS at build time.
+All major client-visible content is connected to Decap CMS content:
+Home, About, Founder photo, Services, Portfolio, Testimonials, global settings and social links.
 
-### CMS-controlled content
-- Portfolio: title, category, tag, image
-- Testimonials
-- Services: name, number, description, icon, enabled
-- Home page: hero, statement, CTA
-- About page: intro, studio copy, founder
-- Global settings: studio name, email, Instagram, Behance, LinkedIn, footer and SEO
+Workflow:
+Decap CMS → GitHub commit → Netlify build → public website.
 
-### Important deployment setup
+Deploy from the GitHub repository (do not use a one-time drag-and-drop build) so every Publish creates a new production build.
 
-For CMS edits to appear on the public website:
+Netlify:
+- Build command: npm run build
+- Publish directory: dist
 
-1. Put this project in the same GitHub repository configured in Decap CMS.
-2. Connect that GitHub repository to Netlify.
-3. Netlify should use Build command `npm run build` and Publish directory `dist`.
-4. Enable Netlify Identity / Git Gateway for the Decap CMS login.
-5. Edit content in `/admin/` and click **Publish**.
-6. Decap commits the changed content to GitHub.
-7. Netlify detects the commit and automatically rebuilds the site.
-8. After the build finishes, the public site shows the new content.
+CMS:
+- Open /admin/
+- Edit
+- Save
+- Publish
+- Wait for Netlify deploy to finish
+- Hard refresh the public site once if your browser cached the old HTML
 
-If the site was deployed only by dragging a `dist` folder into Netlify, CMS changes cannot rebuild that deployment. Connect the GitHub repository instead.
-
-### Local development
-
-```bash
-npm install
-npm run dev
-```
-
-### Production build
-
-```bash
-npm run build
-```
-
-Navigation remains refresh-safe using `/#/`, `/#/work`, and `/#/about`.
+The runtime also fetches `/content/*` with no-cache headers, so CMS content is not baked only into React constants.

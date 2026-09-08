@@ -62,6 +62,95 @@ function useMouseGlow() {
   return ref;
 }
 
+
+async function loadText(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Could not load ${url}`);
+  return res.text();
+}
+
+function parseSimpleYaml(text) {
+  const out = {};
+  const lines = text.replace(/\r/g, "").split("\n");
+  let currentList = null;
+  let currentObj = null;
+  for (const raw of lines) {
+    const line = raw.replace(/\t/g, "    ");
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    const mList = line.match(/^([A-Za-z0-9_-]+):\s*$/);
+    if (mList) {
+      out[mList[1]] = {};
+      currentList = null; currentObj = null;
+      continue;
+    }
+    const mItem = line.match(/^\s*-\s+([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (mItem) {
+      const key = mItem[1], value = cleanYamlValue(mItem[2]);
+      if (!Array.isArray(out.items)) out.items = [];
+      currentObj = {[key]: value}; out.items.push(currentObj); currentList = out.items;
+      continue;
+    }
+    const m = line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (m) {
+      const key = m[1], value = cleanYamlValue(m[2]);
+      if (currentObj && /^\s{2,}/.test(line)) currentObj[key] = value;
+      else out[key] = value;
+    }
+  }
+  return out;
+}
+function cleanYamlValue(v) {
+  v = v.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) return v.slice(1,-1);
+  if (v === "true") return true;
+  if (v === "false") return false;
+  if (v === "null") return null;
+  return v;
+}
+function parseFrontMatter(text) {
+  const m = text.match(/^---\s*[\r\n]+([\s\S]*?)[\r\n]+---\s*[\r\n]*/);
+  if (!m) return {};
+  return parseSimpleYaml(m[1]);
+}
+async function loadCMSContent() {
+  const defaults = {
+    settings: {},
+    home: {},
+    about: {},
+    services: [],
+    testimonials: [],
+    portfolio: []
+  };
+  const read = async (url, kind="yaml") => {
+    try {
+      const text = await loadText(url);
+      return kind === "md" ? parseFrontMatter(text) : parseSimpleYaml(text);
+    } catch { return null; }
+  };
+  const settings = await read("./content/settings.yml");
+  const home = await read("./content/pages/home.yml");
+  const about = await read("./content/pages/about.yml");
+  const listFiles = async (folder) => {
+    try {
+      const r = await fetch(`./content/${folder}/manifest.json`, {cache:"no-store"});
+      if (!r.ok) return [];
+      return await r.json();
+    } catch { return []; }
+  };
+  const readMany = async (folder, kind="md") => {
+    const files = await listFiles(folder);
+    return (await Promise.all(files.map(f => read(`./content/${folder}/${f}`, kind)))).filter(Boolean);
+  };
+  return {
+    settings: settings || {},
+    home: home || {},
+    about: about || {},
+    services: await readMany("services"),
+    testimonials: await readMany("testimonials"),
+    portfolio: await readMany("portfolio", "md")
+  };
+}
+
 function useHashRoute() {
   const getRoute = () => {
     const raw = window.location.hash.replace(/^#/, "") || "/";
@@ -236,7 +325,7 @@ function GlassCard({ children, className="" }) {
   return <div className={`glass ${className}`}>{children}</div>;
 }
 
-function Home() {
+function Home({ cms } = {}) {
   const glow = useMouseGlow();
   useInteractiveTilt(".service-card, .quote-card");
   return (
@@ -295,7 +384,7 @@ function Home() {
   );
 }
 
-function Work() {
+function Work({ cms } = {}) {
   useInteractiveTilt(".portfolio-item");
   const [filter, setFilter] = useState("All");
   const filters = ["All","Branding","Packaging","Social Media"];
@@ -304,21 +393,30 @@ function Work() {
     <section className="section portfolio-section"><div className="filters">{filters.map(f=><button className={filter===f?"active":""} onClick={()=>setFilter(f)} key={f}>{f}</button>)}</div><div className="portfolio-grid">{list.map(p=><article className="portfolio-item" key={p.title}><img src={p.image} alt={p.title}/><div><span>{p.category}</span><h3>{p.title}</h3><small>{p.tag}</small></div></article>)}</div></section></main>;
 }
 
-function About() {
+function About({ cms } = {}) {
   return <main className="inner-page"><section className="page-hero"><span className="kicker">{about.eyebrow || "ABOUT PIXCEL"}</span><h1>{about.title || "Built for brands with something to say."}</h1><p>{about.intro || "Pixcel Studio is an independent graphic design practice focused on creating clear, expressive visual identities with a little more character."}</p></section>
     <section className="section about-layout"><div className="about-art"><div className="about-photo">{about.founder_photo ? <img src={about.founder_photo} alt={about.founder_name || "Pixcel Studio founder"} /> : <span>PX</span>}</div></div><div className="about-copy"><span className="kicker">THE STUDIO</span><h2>{about.studio_heading || "Strategy in one hand. Play in the other."}</h2><p>{about.paragraph_1 || "We believe the strongest visual identities sit at the intersection of clarity and surprise."}</p><p>{about.paragraph_2 || "Our work spans identity, packaging and social content for founders and teams."}</p><a className="text-link" href={`mailto:${settings.email || "hello@pixcelstudio.com"}`}>Start a conversation <ArrowRight size={17}/></a></div></section>
     <section className="founder"><div><span className="kicker">THE FOUNDER</span><h2>{about.founder_name || "Israyelu Kodem."}</h2><p>{about.founder_bio || "Creative direction, brand systems and a belief that design should feel as good as it looks."}</p></div><div className="founder-card glass"><div className="portrait">{about.founder_photo ? <img src={about.founder_photo} alt={about.founder_name || "Founder"} /> : "IK"}</div><div><strong>{about.founder_name || "Israyelu Kodem"}</strong><small>{about.founder_role || "Founder & Creative Director"}</small></div></div></section>
   </main>;
 }
 
-function App() {
-  const route = useHashRoute();
-  let page = <Home/>;
+function CMSApp() {
+  const [cms, setCms] = useState(null);
+  useEffect(() => {
+    loadCMSContent().then(setCms);
+  }, []);
+  if (!cms) return <App />;
+  return <App cms={cms} />;
+}
 
-  if (route === "/work") page = <Work/>;
-  else if (route === "/about") page = <About/>;
+function App({ cms = null }) {
+  const route = useHashRoute();
+  let page = <Home cms={cms}/>;
+
+  if (route === "/work") page = <Work cms={cms}/>;
+  else if (route === "/about") page = <About cms={cms}/>;
 
   return <><CustomCursor/><Header/>{page}<Footer/></>;
 }
 
-createRoot(document.getElementById("root")).render(<App/>);
+createRoot(document.getElementById("root")).render(<CMSApp/>);
