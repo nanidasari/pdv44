@@ -111,6 +111,90 @@ function NavLink({ to, end, children, className = "", onClick, ...props }) {
   );
 }
 
+function CustomCursor() {
+  const dot = useRef(null);
+  const ring = useRef(null);
+  const label = useRef(null);
+  const raf = useRef(0);
+  const target = useRef({ x: -100, y: -100 });
+  const current = useRef({ x: -100, y: -100 });
+
+  useEffect(() => {
+    const isFinePointer = window.matchMedia?.("(pointer:fine)").matches;
+    if (!isFinePointer) return;
+
+    const move = (e) => {
+      target.current.x = e.clientX;
+      target.current.y = e.clientY;
+      const interactive = e.target.closest("a, button, .project, .portfolio-item, .service-card, .quote-card");
+      const isImage = e.target.closest(".project, .portfolio-item");
+      const isCard = e.target.closest(".service-card, .quote-card");
+      document.body.classList.toggle("cursor-hover", !!interactive);
+      document.body.classList.toggle("cursor-image", !!isImage);
+      document.body.classList.toggle("cursor-card", !!isCard);
+      if (label.current) label.current.textContent = isImage ? "VIEW" : isCard ? "EXPLORE" : interactive ? "OPEN" : "";
+    };
+
+    const leave = () => document.body.classList.remove("cursor-hover", "cursor-image", "cursor-card");
+
+    const animate = () => {
+      current.current.x += (target.current.x - current.current.x) * 0.18;
+      current.current.y += (target.current.y - current.current.y) * 0.18;
+      const { x, y } = current.current;
+      if (dot.current) dot.current.style.transform = `translate3d(${target.current.x}px,${target.current.y}px,0)`;
+      if (ring.current) ring.current.style.transform = `translate3d(${x}px,${y}px,0)`;
+      if (label.current) label.current.style.transform = `translate3d(${x}px,${y}px,0)`;
+      raf.current = requestAnimationFrame(animate);
+    };
+
+    window.addEventListener("pointermove", move, { passive: true });
+    document.addEventListener("mouseleave", leave);
+    raf.current = requestAnimationFrame(animate);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      document.removeEventListener("mouseleave", leave);
+      cancelAnimationFrame(raf.current);
+    };
+  }, []);
+
+  return <>
+    <div ref={dot} className="cursor-dot" aria-hidden="true" />
+    <div ref={ring} className="cursor-ring" aria-hidden="true" />
+    <div ref={label} className="cursor-label" aria-hidden="true" />
+  </>;
+}
+
+function useInteractiveTilt(selector) {
+  useEffect(() => {
+    const cards = document.querySelectorAll(selector);
+    const cleanups = [];
+    cards.forEach((card) => {
+      const move = (e) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        card.style.setProperty("--rx", `${(-y * 5).toFixed(2)}deg`);
+        card.style.setProperty("--ry", `${(x * 5).toFixed(2)}deg`);
+        card.style.setProperty("--gx", `${(x * 100 + 50).toFixed(1)}%`);
+        card.style.setProperty("--gy", `${(y * 100 + 50).toFixed(1)}%`);
+      };
+      const leave = () => {
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
+        card.style.setProperty("--gx", "50%");
+        card.style.setProperty("--gy", "50%");
+      };
+      card.addEventListener("pointermove", move);
+      card.addEventListener("pointerleave", leave);
+      cleanups.push(() => {
+        card.removeEventListener("pointermove", move);
+        card.removeEventListener("pointerleave", leave);
+      });
+    });
+    return () => cleanups.forEach((fn) => fn());
+  }, [selector]);
+}
+
 function Header() {
   const [open, setOpen] = useState(false);
   return (
@@ -154,6 +238,7 @@ function GlassCard({ children, className="" }) {
 
 function Home() {
   const glow = useMouseGlow();
+  useInteractiveTilt(".service-card, .quote-card");
   return (
     <main ref={glow}>
       <section className="hero">
@@ -211,6 +296,7 @@ function Home() {
 }
 
 function Work() {
+  useInteractiveTilt(".portfolio-item");
   const [filter, setFilter] = useState("All");
   const filters = ["All","Branding","Packaging","Social Media"];
   const list = filter === "All" ? portfolio : portfolio.filter(p => p.category === filter);
@@ -232,7 +318,7 @@ function App() {
   if (route === "/work") page = <Work/>;
   else if (route === "/about") page = <About/>;
 
-  return <><Header/>{page}<Footer/></>;
+  return <><CustomCursor/><Header/>{page}<Footer/></>;
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
