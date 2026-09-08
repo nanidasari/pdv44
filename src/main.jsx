@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ArrowUpRight, ArrowRight, Menu, X, Sparkles, Box, Share2, Palette, Quote, MoveUpRight } from "lucide-react";
 import "./styles.css";
 
@@ -159,7 +159,12 @@ function About() {
 }
 
 function App() {
-  return <><ScrollTop/><Header/><Routes><Route path="/" element={<Home/>}/><Route path="/work" element={<Work/>}/><Route path="/about" element={<About/>}/></Routes><Footer/></>;
+  return <><ScrollTop/><Header/><Routes>
+    <Route path="/" element={<Home/>}/>
+    <Route path="/work" element={<Work/>}/>
+    <Route path="/about" element={<About/>}/>
+    <Route path="*" element={<Home/>}/>
+  </Routes><Footer/></>;
 }
 
-createRoot(document.getElementById("root")).render(<BrowserRouter><App/></BrowserRouter>);
+createRoot(document.getElementById("root")).render(<HashRouter><App/></HashRouter>);

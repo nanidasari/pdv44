@@ -97,3 +97,7 @@ The `/admin/` panel now includes editable collections for:
 - Favicon upload field
 
 The current React starter still uses bundled starter content for guaranteed instant preview; the CMS content files are structured for connecting to a static-content build pipeline. For a fully dynamic production CMS, the next step is wiring the Markdown/YAML collections into the Vite build (for example with a small build-time content loader).
+
+## Navigation fix
+
+The site now uses `HashRouter`, so navigation works reliably on static hosting without requiring server-side route rewrites. URLs appear as `/#/`, `/#/work`, and `/#/about`. A catch-all route is also included to prevent blank pages on unknown routes.
