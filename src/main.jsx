@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter, Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+
 import { ArrowUpRight, ArrowRight, Menu, X, Sparkles, Box, Share2, Palette, Quote, MoveUpRight } from "lucide-react";
 import "./styles.css";
 
@@ -33,18 +33,62 @@ function useMouseGlow() {
   return ref;
 }
 
-function ScrollTop() {
-  const { pathname } = useLocation();
-  useEffect(() => window.scrollTo({ top: 0, behavior: "instant" }), [pathname]);
-  return null;
+function useHashRoute() {
+  const getRoute = () => {
+    const raw = window.location.hash.replace(/^#/, "") || "/";
+    return raw.split("?")[0] || "/";
+  };
+  const [route, setRoute] = useState(getRoute);
+
+  useEffect(() => {
+    const onHash = () => setRoute(getRoute());
+    window.addEventListener("hashchange", onHash);
+    onHash();
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [route]);
+
+  return route;
+}
+
+function Link({ to, children, className = "", onClick, ...props }) {
+  return (
+    <a
+      href={`#${to}`}
+      className={className}
+      onClick={onClick}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+}
+
+function NavLink({ to, end, children, className = "", onClick, ...props }) {
+  const current = (window.location.hash.replace(/^#/, "") || "/").split("?")[0];
+  const active = current === to;
+  return (
+    <a
+      href={`#${to}`}
+      className={`${className} ${active ? "active" : ""}`.trim()}
+      onClick={onClick}
+      {...props}
+    >
+      {children}
+    </a>
+  );
 }
 
 function Header() {
   const [open, setOpen] = useState(false);
   return (
     <header className="nav">
-      <Link to="/" className="logo" onClick={() => setOpen(false)}>
-        <span className="logo-dot" /> PIXCEL<span>STUDIO</span>
+      <Link to="/" className="logo" onClick={() => setOpen(false)} aria-label="Pixcel Studio home">
+        <img src="./pixcel-logo.png" alt="Pixcel Studio logo" className="nav-logo-img" />
+        <span className="logo-wordmark">PIXCEL<span>STUDIO</span></span>
       </Link>
       <button className="menu-btn" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button>
       <nav className={open ? "nav-links open" : "nav-links"}>
@@ -159,12 +203,13 @@ function About() {
 }
 
 function App() {
-  return <><ScrollTop/><Header/><Routes>
-    <Route path="/" element={<Home/>}/>
-    <Route path="/work" element={<Work/>}/>
-    <Route path="/about" element={<About/>}/>
-    <Route path="*" element={<Home/>}/>
-  </Routes><Footer/></>;
+  const route = useHashRoute();
+  let page = <Home/>;
+
+  if (route === "/work") page = <Work/>;
+  else if (route === "/about") page = <About/>;
+
+  return <><Header/>{page}<Footer/></>;
 }
 
-createRoot(document.getElementById("root")).render(<HashRouter><App/></HashRouter>);
+createRoot(document.getElementById("root")).render(<App/>);
