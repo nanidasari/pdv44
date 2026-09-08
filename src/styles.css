@@ -15,3 +15,5 @@ html{scroll-behavior:smooth}body{margin:0;overflow-x:hidden;background:radial-gr
 \n@media(max-width:600px){.nav-logo-img{width:28px;height:38px}.logo-wordmark{font-size:16px}.logo{gap:8px}}\n
 .btn:active,.nav-cta:active{transform:scale(.96)}
 .project:after,.portfolio-item:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.10) 50%,transparent 65%);transform:translateX(-120%);transition:transform .8s ease;pointer-events:none}.project:hover:after,.portfolio-item:hover:after{transform:translateX(120%)}
+
+.about-photo{overflow:hidden;position:relative}.about-photo img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .7s ease}.about-photo:hover img{transform:scale(1.035)}.portrait{overflow:hidden}.portrait img{width:100%;height:100%;object-fit:cover;display:block}
